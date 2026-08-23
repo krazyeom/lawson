@@ -1,5 +1,10 @@
 import { NextRequest } from "next/server";
+import axios from "axios";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
+// Vercel 환경에서 일본(Tokyo) 리전(hnd1) 강제 지정
+// 이렇게 하면 Vercel 배포 시 일본 IP를 사용하여 차단을 우회할 수 있습니다.
+export const preferredRegion = ["hnd1"];
 export const dynamic = "force-dynamic";
 
 interface CouponResult {
@@ -37,31 +42,41 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// 환경 변수에서 프록시 URL을 가져옵니다. (로컬/PM2 환경용)
+// 예: PROXY_URL="http://username:password@proxy.example.com:8080"
+const proxyUrl = process.env.PROXY_URL;
+const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+
+// axios 인스턴스 생성 (프록시가 설정되어 있으면 적용)
+const apiClient = axios.create({
+  httpsAgent,
+  proxy: false, // axios 기본 프록시 기능 대신 https-proxy-agent 사용
+  headers: {
+    Accept: "application/json",
+    Origin: "https://spot.petit.gift",
+    Referer: "https://spot.petit.gift/",
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
+  },
+  validateStatus: () => true, // 에러 코드 발생 시에도 예외를 던지지 않고 처리
+});
+
 async function lookupCoupon(
   code: string,
   campaignSlug: string
 ): Promise<CouponResult> {
   try {
-    // Step 1: Login request to get login_process_id
-    const loginRes = await fetch(
+    // 1단계: Login request를 호출하여 login_process_id 획득
+    const loginRes = await apiClient.post<LoginRequestResponse>(
       `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(campaignSlug)}/auth/login/request`,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Origin: "https://spot.petit.gift",
-          Referer: "https://spot.petit.gift/",
-        },
-        body: JSON.stringify({
-          utm_url: null,
-          login_type: 5,
-          codes: [code],
-        }),
+        utm_url: null,
+        login_type: 5,
+        codes: [code],
       }
     );
 
-    if (!loginRes.ok) {
+    if (loginRes.status !== 200) {
       return {
         code,
         success: false,
@@ -70,7 +85,7 @@ async function lookupCoupon(
       };
     }
 
-    const loginData: LoginRequestResponse = await loginRes.json();
+    const loginData = loginRes.data;
 
     if (!loginData.success || !loginData.data?.login_process_id) {
       return {
@@ -83,25 +98,15 @@ async function lookupCoupon(
 
     const loginProcessId = loginData.data.login_process_id;
 
-    // Small delay before checking result
+    // 잠시 대기 (서버 부하 방지 및 데이터 갱신 시간 확보)
     await sleep(200);
 
-    // Step 2: Get login result with token and coupon link
-    const resultRes = await fetch(
-      `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(campaignSlug)}/auth/login/result?login_process_id=${encodeURIComponent(loginProcessId)}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json, text/plain, */*",
-          Origin: "https://spot.petit.gift",
-          Referer: "https://spot.petit.gift/",
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
-        },
-      }
+    // 2단계: login_process_id로 결과(쿠폰 상세 링크) 조회
+    const resultRes = await apiClient.get<LoginResultResponse>(
+      `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(campaignSlug)}/auth/login/result?login_process_id=${encodeURIComponent(loginProcessId)}`
     );
 
-    if (!resultRes.ok) {
+    if (resultRes.status !== 200) {
       return {
         code,
         success: false,
@@ -110,7 +115,7 @@ async function lookupCoupon(
       };
     }
 
-    const resultData: LoginResultResponse = await resultRes.json();
+    const resultData = resultRes.data;
 
     if (!resultData.success) {
       return {
@@ -123,12 +128,17 @@ async function lookupCoupon(
 
     const couponLink =
       resultData.data?.current_history?.coupon?.coupon_detail_link || null;
+      
+    // 링크가 언어 파라미터를 갖도록 보정할 수 있습니다 (예: &lang=ko 추가)
+    const finalLink = couponLink && !couponLink.includes("lang=ko") 
+        ? `${couponLink}&lang=ko` 
+        : couponLink;
 
     return {
       code,
-      success: !!couponLink,
-      coupon_detail_link: couponLink,
-      error: couponLink ? undefined : "No coupon link found in response",
+      success: !!finalLink,
+      coupon_detail_link: finalLink,
+      error: finalLink ? undefined : "No coupon link found in response",
     };
   } catch (err) {
     return {
@@ -160,9 +170,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process codes sequentially with delay to avoid rate limiting
     const results: CouponResult[] = [];
 
+    // 속도 제한(Rate Limiting) 방지를 위해 순차 처리
     for (let i = 0; i < codes.length; i++) {
       const code = codes[i].trim();
       if (!code) continue;
@@ -170,7 +180,6 @@ export async function POST(request: NextRequest) {
       const result = await lookupCoupon(code, campaignSlug);
       results.push(result);
 
-      // Delay between requests (except for the last one)
       if (i < codes.length - 1) {
         await sleep(300);
       }
