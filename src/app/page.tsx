@@ -32,7 +32,7 @@ export default function Home() {
       .split(/[\n\r,]+/)
       .map((c) => c.trim())
       .filter((c) => c.length > 0)
-      .filter((c, i, arr) => arr.indexOf(c) === i); // dedupe
+      .filter((c, i, arr) => arr.indexOf(c) === i);
   }, []);
 
   const codeCount = parseCodes(codesText).length;
@@ -53,7 +53,6 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Process in batches of 5 via API
     const batchSize = 5;
     const allResults: CouponResult[] = [];
 
@@ -70,7 +69,6 @@ export default function Home() {
         });
 
         if (!res.ok) {
-          // Mark batch as failed
           for (const code of batch) {
             allResults.push({
               code,
@@ -87,7 +85,10 @@ export default function Home() {
         }
 
         setResults([...allResults]);
-        setProgress({ current: Math.min(i + batchSize, codes.length), total: codes.length });
+        setProgress({
+          current: Math.min(i + batchSize, codes.length),
+          total: codes.length,
+        });
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
@@ -137,10 +138,8 @@ export default function Home() {
       {/* Header */}
       <header className="header">
         <div className="header__icon">🎫</div>
-        <h1 className="header__title">Lawson Coupon Lookup</h1>
-        <p className="header__subtitle">
-          쿠폰 코드를 입력하여 coupon_detail_link 를 일괄 조회
-        </p>
+        <h1 className="header__title">Lawson Coupon</h1>
+        <p className="header__subtitle">쿠폰 조회</p>
       </header>
 
       {/* Campaign Settings */}
@@ -166,11 +165,11 @@ export default function Home() {
             onClick={handleAutoGenerate}
             title="현재 연월로 자동 생성"
           >
-            🔄 자동 생성
+            🔄 자동
           </button>
         </div>
         <div className="campaign-preview">
-          📎 Campaign URL:{" "}
+          📎{" "}
           <a href={campaignUrl} target="_blank" rel="noopener noreferrer">
             {campaignUrl}
           </a>
@@ -192,8 +191,8 @@ export default function Home() {
           disabled={isLoading}
         />
         <div className="textarea-info">
-          <span>한 줄에 하나씩, 빈 줄로 구분 가능. 중복은 자동 제거됩니다.</span>
-          <span className="code-count">{codeCount} 개</span>
+          <span>한 줄에 하나씩, 중복 자동 제거</span>
+          <span className="code-count">{codeCount}개</span>
         </div>
 
         <div className="actions">
@@ -254,92 +253,79 @@ export default function Home() {
             </div>
             <div className="results-stats">
               <span className="stat-badge stat-badge--success">
-                ✅ 성공: {successCount}
+                ✅ {successCount}
               </span>
               <span className="stat-badge stat-badge--error">
-                ❌ 실패: {failCount}
+                ❌ {failCount}
               </span>
             </div>
           </div>
 
-          <div className="results-table-wrapper">
-            <table className="results-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>코드</th>
-                  <th>상태</th>
-                  <th>Barcode</th>
-                  <th>Coupon Detail Link</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((r, i) => (
-                  <tr key={`${r.code}-${i}`}>
-                    <td style={{ color: "var(--text-muted)" }}>{i + 1}</td>
-                    <td className="code-cell">{r.code}</td>
-                    <td>
-                      {r.success ? (
-                        <span className="status-pill status-pill--success">
-                          ✅ 성공
-                        </span>
-                      ) : (
-                        <span
-                          className="status-pill status-pill--error"
-                          title={r.error}
-                        >
-                          ❌ 실패
-                        </span>
-                      )}
-                    </td>
-                    <td className="barcode-cell">
-                      {r.barcode_url ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "center" }}>
-                          <img src={r.barcode_url} alt="barcode" style={{ height: "40px", objectFit: "contain" }} />
-                          <a href={r.barcode_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "11px" }}>
-                            바코드 링크
-                          </a>
-                        </div>
-                      ) : (
-                        <span style={{ color: "var(--text-muted)" }}>—</span>
-                      )}
-                    </td>
-                    <td className="link-cell">
-                      {r.coupon_detail_link ? (
-                        <a
-                          href={r.coupon_detail_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          상세 페이지 확인
-                        </a>
-                      ) : (
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {r.error || "—"}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      {r.coupon_detail_link && (
-                        <button
-                          className={`copy-btn ${copiedIndex === i ? "copy-btn--copied" : ""}`}
-                          onClick={() =>
-                            handleCopyLink(r.coupon_detail_link!, i)
-                          }
-                          title="상세 링크 복사"
-                        >
-                          {copiedIndex === i ? "✓" : "📋"}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="result-list">
+            {results.map((r, i) => (
+              <div
+                key={`${r.code}-${i}`}
+                className={`result-item ${r.success ? "result-item--success" : "result-item--error"}`}
+              >
+                <div className="result-item__top">
+                  <div className="result-item__code">
+                    <span className="index">{i + 1}</span>
+                    {r.code}
+                  </div>
+                  {r.success ? (
+                    <span className="status-pill status-pill--success">
+                      성공
+                    </span>
+                  ) : (
+                    <span className="status-pill status-pill--error">실패</span>
+                  )}
+                </div>
+
+                <div className="result-item__body">
+                  {r.barcode_url && (
+                    <div className="result-item__barcode">
+                      <img src={r.barcode_url} alt="barcode" />
+                      <a
+                        href={r.barcode_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="result-item__barcode-link"
+                      >
+                        바코드 이미지 열기
+                      </a>
+                    </div>
+                  )}
+
+                  {r.coupon_detail_link && (
+                    <div className="result-item__actions">
+                      <a
+                        href={r.coupon_detail_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="action-btn"
+                      >
+                        🔗 쿠폰 상세 보기
+                      </a>
+                      <button
+                        className={`action-btn ${copiedIndex === i ? "action-btn--copied" : ""}`}
+                        onClick={() =>
+                          handleCopyLink(r.coupon_detail_link!, i)
+                        }
+                      >
+                        {copiedIndex === i ? "✓ 복사됨" : "📋 링크 복사"}
+                      </button>
+                    </div>
+                  )}
+
+                  {!r.success && r.error && (
+                    <div className="result-item__error">{r.error}</div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Copy All Links */}
+          {/* Copy All */}
           {successCount > 0 && (
             <div className="copy-all-section">
               <div
@@ -347,7 +333,7 @@ export default function Home() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 10,
+                  marginBottom: 8,
                 }}
               >
                 <h4>성공한 링크 목록</h4>
@@ -355,7 +341,7 @@ export default function Home() {
                   className="btn btn--secondary btn--small"
                   onClick={handleCopyAll}
                 >
-                  📋 전체 링크 복사
+                  📋 전체 복사
                 </button>
               </div>
               <textarea
@@ -391,11 +377,19 @@ export default function Home() {
       {/* Footer */}
       <footer className="footer">
         Made by{" "}
-        <a href="https://github.com/krazyeom" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://github.com/krazyeom"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           krazyeom
         </a>
         , 그래염 @{" "}
-        <a href="https://cafe.naver.com/hexenyang" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://cafe.naver.com/hexenyang"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           LTC
         </a>
       </footer>
