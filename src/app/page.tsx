@@ -6,6 +6,7 @@ interface CouponResult {
   code: string;
   success: boolean;
   coupon_detail_link: string | null;
+  barcode_url?: string | null;
   error?: string;
 }
 
@@ -268,6 +269,7 @@ export default function Home() {
                   <th>#</th>
                   <th>코드</th>
                   <th>상태</th>
+                  <th>Barcode</th>
                   <th>Coupon Detail Link</th>
                   <th></th>
                 </tr>
@@ -291,6 +293,18 @@ export default function Home() {
                         </span>
                       )}
                     </td>
+                    <td className="barcode-cell">
+                      {r.barcode_url ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "center" }}>
+                          <img src={r.barcode_url} alt="barcode" style={{ height: "40px", objectFit: "contain" }} />
+                          <a href={r.barcode_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "11px" }}>
+                            바코드 링크
+                          </a>
+                        </div>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)" }}>—</span>
+                      )}
+                    </td>
                     <td className="link-cell">
                       {r.coupon_detail_link ? (
                         <a
@@ -298,7 +312,7 @@ export default function Home() {
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          {r.coupon_detail_link}
+                          상세 페이지 확인
                         </a>
                       ) : (
                         <span style={{ color: "var(--text-muted)" }}>
@@ -313,7 +327,7 @@ export default function Home() {
                           onClick={() =>
                             handleCopyLink(r.coupon_detail_link!, i)
                           }
-                          title="링크 복사"
+                          title="상세 링크 복사"
                         >
                           {copiedIndex === i ? "✓" : "📋"}
                         </button>
