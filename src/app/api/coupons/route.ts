@@ -11,6 +11,7 @@ interface CouponResult {
   code: string;
   success: boolean;
   coupon_detail_link: string | null;
+  barcode_url?: string | null;
   error?: string;
 }
 
@@ -176,24 +177,35 @@ async function lookupCoupon(
         ? `${couponLink}&lang=ko` 
         : couponLink;
 
-    // 5단계: 최종 생성된 쿠폰 링크를 일본 IP 환경(apiClient)에서 한 번 GET 호출하여 활성화
+    let barcodeUrl: string | null = null;
+
+    // 5단계: 최종 생성된 쿠폰 링크를 일본 IP 환경(apiClient)에서 한 번 GET 호출하여 활성화 및 바코드 추출
     if (finalLink) {
       try {
         const activationRes = await apiClient.get(finalLink);
+        let html = activationRes.data;
         
         // 만약 응답 HTML에 자바스크립트 리다이렉트가 있다면 (미사용 쿠폰의 경우)
         // 예: var url = 'https://spot.petit.gift/...'; window.location.href = url;
-        const html = activationRes.data;
         if (typeof html === 'string') {
           const redirectMatch = html.match(/var\s+url\s*=\s*['"](https:\/\/spot\.petit\.gift[^'"]+)['"]/);
           if (redirectMatch && redirectMatch[1]) {
             const redirectUrl = redirectMatch[1];
             // 추출한 리다이렉트 URL로 한 번 더 요청을 보내어 실제 활성화(발급) 처리를 완료합니다.
-            await apiClient.get(redirectUrl, {
+            const redirectRes = await apiClient.get(redirectUrl, {
               headers: {
                 Referer: finalLink
               }
             });
+            html = redirectRes.data;
+          }
+
+          if (typeof html === 'string') {
+            // HTML에서 바코드 이미지 URL을 추출합니다.
+            const barcodeMatch = html.match(/(https:\/\/coupon\.petit\.gift\/generator\/barcode\?[^"']+)/);
+            if (barcodeMatch && barcodeMatch[1]) {
+              barcodeUrl = barcodeMatch[1].replace(/&amp;/g, '&');
+            }
           }
         }
         // 짧은 대기 추가 (순차 처리 안정성을 위해)
@@ -206,9 +218,10 @@ async function lookupCoupon(
 
     return {
       code,
-      success: !!finalLink,
+      success: !!barcodeUrl || !!finalLink, // 바코드가 없어도 링크가 있으면 성공으로 간주하되, 최종 목적은 바코드 추출입니다
       coupon_detail_link: finalLink,
-      error: finalLink ? undefined : "No coupon link found in response",
+      barcode_url: barcodeUrl,
+      error: barcodeUrl ? undefined : (finalLink ? "Barcode not found in HTML" : "No coupon link found in response"),
     };
   } catch (err) {
     return {
