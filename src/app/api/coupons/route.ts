@@ -137,7 +137,23 @@ async function lookupCoupon(
     // 3단계: 최종 생성된 쿠폰 링크를 일본 IP 환경(apiClient)에서 한 번 GET 호출하여 활성화
     if (finalLink) {
       try {
-        await apiClient.get(finalLink);
+        const activationRes = await apiClient.get(finalLink);
+        
+        // 만약 응답 HTML에 자바스크립트 리다이렉트가 있다면 (미사용 쿠폰의 경우)
+        // 예: var url = 'https://spot.petit.gift/...'; window.location.href = url;
+        const html = activationRes.data;
+        if (typeof html === 'string') {
+          const redirectMatch = html.match(/var\s+url\s*=\s*['"](https:\/\/spot\.petit\.gift[^'"]+)['"]/);
+          if (redirectMatch && redirectMatch[1]) {
+            const redirectUrl = redirectMatch[1];
+            // 추출한 리다이렉트 URL로 한 번 더 요청을 보내어 실제 활성화(발급) 처리를 완료합니다.
+            await apiClient.get(redirectUrl, {
+              headers: {
+                Referer: finalLink
+              }
+            });
+          }
+        }
         // 짧은 대기 추가 (순차 처리 안정성을 위해)
         await sleep(100);
       } catch (activationError) {
