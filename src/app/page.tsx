@@ -187,7 +187,7 @@ export default function Home() {
           className="textarea-field"
           value={codesText}
           onChange={(e) => setCodesText(e.target.value)}
-          placeholder={`쿠폰 코드를 한 줄에 하나씩 입력하세요...\n\nB47996BB2H\n652D5CE48H\n46FA5572AA\nFDBE62BA3C`}
+          placeholder={`쿠폰 코드를 한 줄에 하나씩 입력하세요...\n\nA1B2C3D4EF\nX9Y8Z7W6VU\nK5L6M7N8PQ\nR3S4T5U6VW`}
           disabled={isLoading}
         />
         <div className="textarea-info">
