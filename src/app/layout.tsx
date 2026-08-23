@@ -9,15 +9,15 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Lawson Coupon Lookup | クーポンコード検索",
+  title: "Lawson Coupon Lookup | 쿠폰 코드 검색",
   description:
-    "Bulk coupon code lookup tool for Lawson campaigns. Enter multiple coupon codes and retrieve coupon detail links instantly.",
-  keywords: ["lawson", "coupon", "lookup", "petit.gift", "kakaotalk"],
+    "로손 캠페인 쿠폰 코드 일괄 조회 도구. 여러 쿠폰 코드를 입력하면 쿠폰 상세 링크를 즉시 확인할 수 있습니다.",
+  keywords: ["lawson", "coupon", "lookup", "petit.gift", "kakaotalk", "로손", "쿠폰"],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ja" className={inter.variable}>
+    <html lang="ko" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

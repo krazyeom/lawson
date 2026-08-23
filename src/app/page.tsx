@@ -90,7 +90,7 @@ export default function Home() {
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
-        showToast("エラーが発生しました");
+        showToast("오류가 발생했습니다");
       }
     } finally {
       setIsLoading(false);
@@ -102,7 +102,7 @@ export default function Home() {
     if (abortRef.current) {
       abortRef.current.abort();
       setIsLoading(false);
-      showToast("処理を停止しました");
+      showToast("처리를 중지했습니다");
     }
   };
 
@@ -119,7 +119,7 @@ export default function Home() {
       .map((r) => r.coupon_detail_link)
       .join("\n");
     navigator.clipboard.writeText(links).then(() => {
-      showToast("全リンクをコピーしました");
+      showToast("모든 링크를 복사했습니다");
     });
   };
 
@@ -138,7 +138,7 @@ export default function Home() {
         <div className="header__icon">🎫</div>
         <h1 className="header__title">Lawson Coupon Lookup</h1>
         <p className="header__subtitle">
-          クーポンコードを入力して、coupon_detail_link を一括取得
+          쿠폰 코드를 입력하여 coupon_detail_link 를 일괄 조회
         </p>
       </header>
 
@@ -146,11 +146,11 @@ export default function Home() {
       <section className="card">
         <div className="card__title">
           <span className="card__title-icon">⚙️</span>
-          キャンペーン設定
+          캠페인 설정
         </div>
         <div className="campaign-row">
           <div className="input-group">
-            <label htmlFor="campaign-slug">Campaign Slug</label>
+            <label htmlFor="campaign-slug">캠페인 슬러그</label>
             <input
               id="campaign-slug"
               type="text"
@@ -163,9 +163,9 @@ export default function Home() {
           <button
             className="btn btn--secondary btn--auto"
             onClick={handleAutoGenerate}
-            title="現在の年月から自動生成"
+            title="현재 연월로 자동 생성"
           >
-            🔄 自動生成
+            🔄 자동 생성
           </button>
         </div>
         <div className="campaign-preview">
@@ -180,19 +180,19 @@ export default function Home() {
       <section className="card">
         <div className="card__title">
           <span className="card__title-icon">📝</span>
-          クーポンコード入力
+          쿠폰 코드 입력
         </div>
         <textarea
           id="coupon-codes"
           className="textarea-field"
           value={codesText}
           onChange={(e) => setCodesText(e.target.value)}
-          placeholder={`クーポンコードを1行ずつ入力してください...\n\nB47996BB2H\n652D5CE48H\n46FA5572AA\nFDBE62BA3C`}
+          placeholder={`쿠폰 코드를 한 줄에 하나씩 입력하세요...\n\nB47996BB2H\n652D5CE48H\n46FA5572AA\nFDBE62BA3C`}
           disabled={isLoading}
         />
         <div className="textarea-info">
-          <span>1行に1コード、空行で区切り可能。重複は自動除去されます。</span>
-          <span className="code-count">{codeCount} コード</span>
+          <span>한 줄에 하나씩, 빈 줄로 구분 가능. 중복은 자동 제거됩니다.</span>
+          <span className="code-count">{codeCount} 개</span>
         </div>
 
         <div className="actions">
@@ -205,10 +205,10 @@ export default function Home() {
             {isLoading ? (
               <>
                 <span className="spinner" />
-                処理中...
+                처리 중...
               </>
             ) : (
-              <>🔍 一括検索</>
+              <>🔍 일괄 검색</>
             )}
           </button>
           {isLoading && (
@@ -217,7 +217,7 @@ export default function Home() {
               className="btn btn--secondary"
               onClick={handleStop}
             >
-              ⏹️ 停止
+              ⏹️ 중지
             </button>
           )}
         </div>
@@ -227,7 +227,7 @@ export default function Home() {
       {(isLoading || results.length > 0) && progress.total > 0 && (
         <section className="card progress-section">
           <div className="progress-header">
-            <span className="progress-label">処理状況</span>
+            <span className="progress-label">처리 현황</span>
             <span className="progress-count">
               {progress.current} / {progress.total}
             </span>
@@ -249,14 +249,14 @@ export default function Home() {
           <div className="results-header">
             <div className="card__title" style={{ marginBottom: 0 }}>
               <span className="card__title-icon">📋</span>
-              検索結果
+              검색 결과
             </div>
             <div className="results-stats">
               <span className="stat-badge stat-badge--success">
-                ✅ 成功: {successCount}
+                ✅ 성공: {successCount}
               </span>
               <span className="stat-badge stat-badge--error">
-                ❌ 失敗: {failCount}
+                ❌ 실패: {failCount}
               </span>
             </div>
           </div>
@@ -266,8 +266,8 @@ export default function Home() {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>コード</th>
-                  <th>ステータス</th>
+                  <th>코드</th>
+                  <th>상태</th>
                   <th>Coupon Detail Link</th>
                   <th></th>
                 </tr>
@@ -280,14 +280,14 @@ export default function Home() {
                     <td>
                       {r.success ? (
                         <span className="status-pill status-pill--success">
-                          ✅ 成功
+                          ✅ 성공
                         </span>
                       ) : (
                         <span
                           className="status-pill status-pill--error"
                           title={r.error}
                         >
-                          ❌ 失敗
+                          ❌ 실패
                         </span>
                       )}
                     </td>
@@ -313,7 +313,7 @@ export default function Home() {
                           onClick={() =>
                             handleCopyLink(r.coupon_detail_link!, i)
                           }
-                          title="リンクをコピー"
+                          title="링크 복사"
                         >
                           {copiedIndex === i ? "✓" : "📋"}
                         </button>
@@ -336,12 +336,12 @@ export default function Home() {
                   marginBottom: 10,
                 }}
               >
-                <h4>成功したリンク一覧</h4>
+                <h4>성공한 링크 목록</h4>
                 <button
                   className="btn btn--secondary btn--small"
                   onClick={handleCopyAll}
                 >
-                  📋 全リンクをコピー
+                  📋 전체 링크 복사
                 </button>
               </div>
               <textarea
@@ -363,9 +363,9 @@ export default function Home() {
           <div className="empty-state">
             <div className="empty-state__icon">🎟️</div>
             <p className="empty-state__text">
-              クーポンコードを入力して「一括検索」をクリックしてください。
+              쿠폰 코드를 입력하고 「일괄 검색」을 클릭하세요.
               <br />
-              結果がここに表示されます。
+              결과가 여기에 표시됩니다.
             </p>
           </div>
         </section>
