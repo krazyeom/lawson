@@ -647,6 +647,25 @@ body::before {
   }
 }
 
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 24px 0 8px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .container {

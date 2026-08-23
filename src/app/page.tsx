@@ -387,6 +387,18 @@ export default function Home() {
 
       {/* Toast */}
       {toast && <div className="toast">{toast}</div>}
+
+      {/* Footer */}
+      <footer className="footer">
+        Made by{" "}
+        <a href="https://github.com/krazyeom" target="_blank" rel="noopener noreferrer">
+          krazyeom
+        </a>
+        , 그래염 @{" "}
+        <a href="https://cafe.naver.com/hexenyang" target="_blank" rel="noopener noreferrer">
+          LTC
+        </a>
+      </footer>
     </main>
   );
 }
