@@ -38,6 +38,25 @@ interface LoginResultResponse {
   };
 }
 
+interface IssueRequestResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    status: string;
+  };
+}
+
+interface IssueResultResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    status: string;
+    coupon_data?: {
+      cp_exchange_url?: string;
+    };
+  };
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -126,15 +145,38 @@ async function lookupCoupon(
       };
     }
 
-    const couponLink =
-      resultData.data?.current_history?.coupon?.coupon_detail_link || null;
+    const token = resultData.data?.token;
+    let couponLink = resultData.data?.current_history?.coupon?.coupon_detail_link || null;
+
+    if (!couponLink && token) {
+      // 3단계: 쿠폰 발행 요청 (Issue Request)
+      const issueReqRes = await apiClient.post<IssueRequestResponse>(
+        `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(campaignSlug)}/coupons/issue/request`,
+        { coupon_ids: [], has_detail: true },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (issueReqRes.status === 200 && issueReqRes.data?.success) {
+        await sleep(500); // 서버 처리 대기
+
+        // 4단계: 쿠폰 발행 결과 (Issue Result) 조회
+        const issueResRes = await apiClient.get<IssueResultResponse>(
+          `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(campaignSlug)}/coupons/issue/result`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (issueResRes.status === 200 && issueResRes.data?.success) {
+          couponLink = issueResRes.data.data?.coupon_data?.cp_exchange_url || null;
+        }
+      }
+    }
       
     // 링크가 언어 파라미터를 갖도록 보정할 수 있습니다 (예: &lang=ko 추가)
     const finalLink = couponLink && !couponLink.includes("lang=ko") 
         ? `${couponLink}&lang=ko` 
         : couponLink;
 
-    // 3단계: 최종 생성된 쿠폰 링크를 일본 IP 환경(apiClient)에서 한 번 GET 호출하여 활성화
+    // 5단계: 최종 생성된 쿠폰 링크를 일본 IP 환경(apiClient)에서 한 번 GET 호출하여 활성화
     if (finalLink) {
       try {
         const activationRes = await apiClient.get(finalLink);
