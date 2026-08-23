@@ -134,6 +134,18 @@ async function lookupCoupon(
         ? `${couponLink}&lang=ko` 
         : couponLink;
 
+    // 3단계: 최종 생성된 쿠폰 링크를 일본 IP 환경(apiClient)에서 한 번 GET 호출하여 활성화
+    if (finalLink) {
+      try {
+        await apiClient.get(finalLink);
+        // 짧은 대기 추가 (순차 처리 안정성을 위해)
+        await sleep(100);
+      } catch (activationError) {
+        // 활성화 호출 실패 시 에러 로깅만 하고 계속 진행
+        console.error(`Failed to activate coupon link: ${finalLink}`, activationError);
+      }
+    }
+
     return {
       code,
       success: !!finalLink,
