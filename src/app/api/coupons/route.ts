@@ -173,7 +173,7 @@ async function lookupCoupon(
     }
       
     // 링크가 언어 파라미터를 갖도록 보정할 수 있습니다 (예: &lang=ko 추가)
-    const finalLink = couponLink && !couponLink.includes("lang=ko") 
+    let finalLink = couponLink && !couponLink.includes("lang=ko") 
         ? `${couponLink}&lang=ko` 
         : couponLink;
 
@@ -185,19 +185,71 @@ async function lookupCoupon(
         const activationRes = await apiClient.get(finalLink);
         let html = activationRes.data;
         
-        // 만약 응답 HTML에 자바스크립트 리다이렉트가 있다면 (미사용 쿠폰의 경우)
-        // 예: var url = 'https://spot.petit.gift/...'; window.location.href = url;
+        // 만약 응답 HTML에 자바스크립트 리다이렉트가 있다면 (2-Step 캠페인의 경우)
+        // 예: var url = 'https://spot.petit.gift/campaigns/kakaotalk2608-coffee?code=ec0e...';
         if (typeof html === 'string') {
-          const redirectMatch = html.match(/var\s+url\s*=\s*['"](https:\/\/spot\.petit\.gift[^'"]+)['"]/);
+          const redirectMatch = html.match(/var\s+url\s*=\s*['"](https:\/\/spot\.petit\.gift\/campaigns\/([^?]+)\?code=([^'"]+))['"]/);
           if (redirectMatch && redirectMatch[1]) {
-            const redirectUrl = redirectMatch[1];
-            // 추출한 리다이렉트 URL로 한 번 더 요청을 보내어 실제 활성화(발급) 처리를 완료합니다.
-            const redirectRes = await apiClient.get(redirectUrl, {
-              headers: {
-                Referer: finalLink
+            const newCampaignSlug = redirectMatch[2];
+            const newCode = redirectMatch[3];
+            
+            // 추출한 새 캠페인으로 다시 Login 및 Issue 처리
+            const login2Res = await apiClient.post<LoginRequestResponse>(
+              `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(newCampaignSlug)}/auth/login/request`,
+              {
+                utm_url: null,
+                login_type: 1, // 두 번째 스텝은 보통 1
+                code: newCode,
               }
-            });
-            html = redirectRes.data;
+            );
+
+            if (login2Res.status === 200 && login2Res.data.success && login2Res.data.data?.login_process_id) {
+              await sleep(200);
+              
+              const login2Result = await apiClient.get<LoginResultResponse>(
+                `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(newCampaignSlug)}/auth/login/result?login_process_id=${encodeURIComponent(login2Res.data.data.login_process_id)}`
+              );
+
+              if (login2Result.status === 200 && login2Result.data.success) {
+                const token2 = login2Result.data.data?.token;
+                
+                // 이미 쿠폰을 발급받은 이력이 있는지 확인
+                let newCouponLink = login2Result.data.data?.current_history?.coupon?.coupon_detail_link || null;
+                
+                if (!newCouponLink && token2) {
+                  // 새로 발급 받아야 하는 경우
+                  const issue2Req = await apiClient.post<IssueRequestResponse>(
+                    `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(newCampaignSlug)}/coupons/issue/request`,
+                    { coupon_ids: [], has_detail: true },
+                    { headers: { Authorization: `Bearer ${token2}` } }
+                  );
+                  
+                  if (issue2Req.status === 200 && issue2Req.data?.success) {
+                    await sleep(500);
+
+                    const issue2Res = await apiClient.get<IssueResultResponse>(
+                      `https://gw2.petit.gift/api/campaigns/${encodeURIComponent(newCampaignSlug)}/coupons/issue/result`,
+                      { headers: { Authorization: `Bearer ${token2}` } }
+                    );
+
+                    if (issue2Res.status === 200 && issue2Res.data?.success) {
+                      newCouponLink = issue2Res.data.data?.coupon_data?.cp_exchange_url || null;
+                    }
+                  }
+                }
+
+                if (newCouponLink) {
+                  finalLink = newCouponLink;
+                  if (!finalLink.includes("lang=ko")) {
+                    finalLink += "&lang=ko";
+                  }
+                  
+                  // 최종 진짜 쿠폰 상세 페이지 HTML 가져오기
+                  const finalHtmlRes = await apiClient.get(finalLink);
+                  html = finalHtmlRes.data;
+                }
+              }
+            }
           }
 
           if (typeof html === 'string') {
