@@ -113,3 +113,11 @@ test('IP limit is reported distinctly without retrying or issuing again', async 
   assert.equal(r.status, 'ip_limited');
   assert.match(r.error, /campaign_max_ip_limit/);
 });
+test('proxy denial is distinguished from campaign eligibility without exposing response HTML', async () => {
+  const r = await run([['post', '/auth/login/request', {
+    status: 403, headers: { server: 'squid', 'x-squid-error': 'ERR_ACCESS_DENIED 0' },
+    data: '<html>Squid ERR_ACCESS_DENIED hidden credentials</html>',
+  }]]);
+  assert.match(r.error, /Squid proxy: ERR_ACCESS_DENIED 0/);
+  assert.doesNotMatch(r.error, /hidden credentials/);
+});

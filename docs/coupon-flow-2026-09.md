@@ -56,3 +56,11 @@ A successful display confirms retrieval of the page and barcode, not whether a s
 - Unit/regression suite: 16 tests, including ticket tampering/expiry/type binding, restricted targets, HTML masquerading as an image, no browser upstream URLs, delayed jobs, existing issuance, September redirects and IP limits.
 
 Vercel's dependency installation is separated from coupon traffic: `installCommand` clears HTTP(S)_PROXY only for `npm ci`. The application environment remains unchanged and every coupon request still uses PROXY_URL. This avoids sending package installation traffic through the application proxy.
+
+## Production verification and remaining infrastructure issue
+
+- Vercel deployed `japan-coupon-view-v3` successfully. Its PROXY_URL was synchronized with the locally verified value with explicit user approval.
+- The production lookup of the designated third code stops at `Login request: HTTP 403 (Squid proxy)`, before any campaign issuance. The same flow succeeds locally.
+- The HTTP adapter is explicitly Node's `http` adapter so `HttpsProxyAgent` is used.
+- Deployment completion must not be reported as end-to-end production success. Squid access policy/logs need inspection to explain why the Vercel-origin connection is rejected.
+- Proxy error diagnostics retain only the gateway name and Squid ERR_* code, never the HTML body, request URLs, or credentials.

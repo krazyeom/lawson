@@ -49,7 +49,9 @@ function checked(response: AxiosResponse<JobResponse>, stage: string, requesting
     const html = typeof body === "string" ? body : "";
     const gateway = /cloudfront/i.test(html) ? "CloudFront" : /squid/i.test(html) ? "Squid proxy" : "";
     const server = String(response.headers?.server || "").replace(/[^a-zA-Z0-9 ._/-]/g, "").slice(0,60);
-    const source = gateway || server;
+    const squidError = String(response.headers?.["x-squid-error"] || html.match(/ERR_[A-Z_]+/)?.[0] || "")
+      .replace(/[^A-Z0-9_ -]/g, "").slice(0,80);
+    const source = [gateway || server, squidError].filter(Boolean).join(": ");
     throw new Error(`${stage}: HTTP ${response.status}${source ? ` (${source})` : ""}${detail ? ` — ${detail}` : ""}`);
   }
   return body;
