@@ -93,3 +93,15 @@ test('coupon page HTTP errors are not reported as successful activation', async 
   ]);
   assert.equal(r.success, false); assert.match(r.error, /Coupon page: HTTP 403/);
 });
+test('JSON-escaped external redirect reaches second campaign via HTTP redirect', async () => {
+  const external = 'https://coupon.petit.gift/issued-products/1/external-redirect?app_id=1';
+  const r = await run([...login({ coupon: { coupon_detail_link: link } }),
+    ['get', '/detail?', { status: 200, data: `var url = ${JSON.stringify(external).replaceAll('/', '\\/')}; window.location.href = url;` }],
+    ['get', '/external-redirect?', { status: 200, data: '<div id="app"></div>', request: { res: { responseUrl: 'https://spot.petit.gift/campaigns/fruit?code=NEXT' } } }],
+    ['post', '/fruit/auth/login/request', ok({ status: 'pending', login_process_id: 'id2' })],
+    ['get', '/fruit/auth/login/result?', job({ token: 'test-token' })], campaign(false),
+    ['post', '/coupons/issue/request', ok({ status: 'pending' })],
+    ['get', '/coupons/issue/result', job({ coupon_data: { cp_exchange_url: link } })], page,
+  ]);
+  assert.equal(r.success, true); assert.ok(r.barcode_url);
+});

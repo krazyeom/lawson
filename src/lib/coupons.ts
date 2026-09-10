@@ -117,7 +117,7 @@ export function createCouponLookup(
     try {
       let link = await resolveCampaign(campaignSlug, { utm_url: null, login_type: 5, codes: [code] });
       // Both the input campaign and a redirected campaign use the same asynchronous flow.
-      for (let step = 0; step < 3; step++) {
+      for (let step = 0; step < 6; step++) {
         const url = new URL(link);
         if (url.protocol !== "https:" || !["coupon.petit.gift", "spot.petit.gift"].includes(url.hostname)) {
           throw new Error("Coupon page: unexpected URL");
@@ -128,14 +128,33 @@ export function createCouponLookup(
         if (page.status !== 200 || typeof page.data !== "string") {
           throw new Error(`Coupon page: HTTP ${page.status}`);
         }
-        const redirect = page.data.match(/var\s+url\s*=\s*['"](https:\/\/spot\.petit\.gift\/campaigns\/[^'"]+)['"]/);
-        if (redirect) {
-          const destination = new URL(redirect[1].replace(/&amp;/g, "&"));
-          const slug = destination.pathname.match(/^\/campaigns\/([^/]+)\/?$/)?.[1];
-          const nextCode = destination.searchParams.get("code");
-          if (!slug || !nextCode) throw new Error("Coupon redirect: missing campaign or code");
-          link = await resolveCampaign(slug, { utm_url: null, login_type: 1, code: nextCode });
-          continue;
+        // Axios follows HTTP redirects; imported coupons now pass through an
+        // external-redirect endpoint before arriving at the second campaign.
+        const responseUrl: string | undefined = page.request?.res?.responseUrl;
+        const scriptUrl = page.data.match(/var\s+url\s*=\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/);
+        let redirectUrl = responseUrl && responseUrl !== finalLink ? responseUrl : null;
+        if (scriptUrl) {
+          redirectUrl = scriptUrl[1].startsWith('"')
+            ? JSON.parse(scriptUrl[1]) as string
+            : scriptUrl[1].slice(1, -1).replace(/\\\//g, "/");
+        }
+        if (redirectUrl) {
+          const destination = new URL(redirectUrl.replace(/&amp;/g, "&"));
+          if (destination.protocol !== "https:" || !["coupon.petit.gift", "spot.petit.gift"].includes(destination.hostname)) {
+            throw new Error("Coupon redirect: unexpected URL");
+          }
+          if (destination.hostname === "spot.petit.gift") {
+            const slug = destination.pathname.match(/^\/campaigns\/([^/]+)\/?$/)?.[1];
+            const nextCode = destination.searchParams.get("code");
+            if (!slug || !nextCode) throw new Error("Coupon redirect: missing campaign or code");
+            link = await resolveCampaign(slug, { utm_url: null, login_type: 1, code: nextCode });
+            continue;
+          }
+          if (scriptUrl) {
+            link = destination.toString();
+            continue;
+          }
+          finalLink = destination.toString();
         }
         const barcode = page.data.match(/(https:\/\/coupon\.petit\.gift\/generator\/barcode\?[^"'<>\s]+)/)?.[1];
         return {
