@@ -54,3 +54,5 @@ A successful display confirms retrieval of the page and barcode, not whether a s
 - Detail HTML embeds two data images (product and barcode) and contains no external HTTP(S) URL.
 - Browser visual check confirmed product image, readable barcode, serial digits, expiry and conditions on the new viewer.
 - Unit/regression suite: 16 tests, including ticket tampering/expiry/type binding, restricted targets, HTML masquerading as an image, no browser upstream URLs, delayed jobs, existing issuance, September redirects and IP limits.
+
+Vercel's dependency installation is separated from coupon traffic: `installCommand` clears HTTP(S)_PROXY only for `npm ci`. The application environment remains unchanged and every coupon request still uses PROXY_URL. This avoids sending package installation traffic through the application proxy.
