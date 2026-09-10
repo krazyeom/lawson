@@ -1,32 +1,18 @@
 import type { NextRequest } from "next/server";
-import axios from "axios";
-import { HttpsProxyAgent } from "https-proxy-agent";
 import { createCouponLookup, type CouponResult } from "../../../lib/coupons";
+import { createJapanClient, getProxyUrl } from "../../../lib/japan-client";
+import { createViewTickets, renderCouponPage, privateHeaders } from "../../../lib/coupon-view";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const proxyUrl = process.env.PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
-const apiClient = axios.create({
-  httpsAgent: proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined,
-  proxy: false,
-  timeout: 15_000,
-  headers: {
-    Accept: "application/json",
-    Origin: "https://spot.petit.gift",
-    Referer: "https://spot.petit.gift/",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
-  },
-  validateStatus: () => true,
-});
-const lookupCoupon = createCouponLookup(apiClient);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // This read-only endpoint verifies which revision actually reached production.
 export async function GET() {
   return Response.json({
-    version: "lottery-redirect-v2",
+    version: "japan-coupon-view-v3",
     revision: process.env.VERCEL_GIT_COMMIT_SHA || "local",
   }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -52,6 +38,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const client = createJapanClient();
+    const lookupCoupon = createCouponLookup(client);
+    const tickets = createViewTickets(process.env.COUPON_VIEW_SECRET || getProxyUrl() || "");
     const results: CouponResult[] = [];
 
     // 속도 제한(Rate Limiting) 방지를 위해 순차 처리
@@ -60,6 +49,25 @@ export async function POST(request: NextRequest) {
       if (!code) continue;
 
       const result = await lookupCoupon(code, campaignSlug);
+      if (result.success && result.coupon_detail_link && result.barcode_url) {
+        try {
+          // Success means the full page AND image bytes were read through Japan.
+          await renderCouponPage(client, result.coupon_detail_link);
+          result.coupon_detail_link = `/api/coupons/view?ticket=${tickets.seal(result.coupon_detail_link, "detail")}`;
+          result.barcode_url = `/api/coupons/image?ticket=${tickets.seal(result.barcode_url, "image")}`;
+        } catch {
+          result.success = false;
+          result.error = "발급 이력은 있지만 일본 프록시를 통한 상세 화면·이미지 확인에 실패했습니다. 다시 조회해 주세요.";
+        }
+      } else if (result.success) {
+        result.success = false;
+        result.error = "바코드를 확인하지 못해 쿠폰 확인이 완료되지 않았습니다.";
+      }
+      // Never send an upstream link that would bypass the proxy in the browser.
+      if (!result.success) {
+        result.coupon_detail_link = null;
+        result.barcode_url = null;
+      }
       results.push(result);
       if (result.status === "ip_limited") break;
 
@@ -77,7 +85,7 @@ export async function POST(request: NextRequest) {
         failed: results.filter((r) => !r.success && r.status !== "not_won").length,
         not_won: results.filter((r) => r.status === "not_won").length,
       },
-    });
+    }, { headers: privateHeaders });
   } catch (err) {
     return Response.json(
       {

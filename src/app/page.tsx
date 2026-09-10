@@ -115,7 +115,7 @@ export default function Home() {
   };
 
   const handleCopyLink = (link: string, idx: number) => {
-    navigator.clipboard.writeText(link).then(() => {
+    navigator.clipboard.writeText(new URL(link, window.location.origin).toString()).then(() => {
       setCopiedIndex(idx);
       setTimeout(() => setCopiedIndex(null), 1500);
     });
@@ -124,7 +124,7 @@ export default function Home() {
   const handleCopyAll = () => {
     const links = results
       .filter((r) => r.success && r.coupon_detail_link)
-      .map((r) => r.coupon_detail_link)
+      .map((r) => new URL(r.coupon_detail_link!, window.location.origin).toString())
       .join("\n");
     navigator.clipboard.writeText(links).then(() => {
       showToast("모든 링크를 복사했습니다");
@@ -357,7 +357,7 @@ export default function Home() {
                 readOnly
                 value={results
                   .filter((r) => r.success && r.coupon_detail_link)
-                  .map((r) => r.coupon_detail_link)
+                  .map((r) => new URL(r.coupon_detail_link!, window.location.origin).toString())
                   .join("\n")}
               />
             </div>
