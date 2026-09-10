@@ -8,7 +8,7 @@ interface CouponResult {
   coupon_detail_link: string | null;
   barcode_url?: string | null;
   error?: string;
-  status?: "not_won";
+  status?: "not_won" | "ip_limited";
 }
 
 function generateCampaignSlug(): string {
@@ -54,7 +54,8 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const batchSize = 5;
+    // 신규 발급은 여러 단계가 필요하므로 쿠폰별로 응답을 받습니다.
+    const batchSize = 1;
     const allResults: CouponResult[] = [];
 
     try {
@@ -90,6 +91,10 @@ export default function Home() {
           current: Math.min(i + batchSize, codes.length),
           total: codes.length,
         });
+        if (allResults.some((result) => result.status === "ip_limited")) {
+          showToast("캠페인 IP 이용 한도로 조회를 중단했습니다. 남은 코드는 처리하지 않았습니다.");
+          break;
+        }
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
@@ -280,7 +285,7 @@ export default function Home() {
                       성공
                     </span>
                   ) : (
-                    <span className="status-pill status-pill--error">{r.status === "not_won" ? "미당첨" : "실패"}</span>
+                    <span className="status-pill status-pill--error">{r.status === "not_won" ? "미당첨" : r.status === "ip_limited" ? "IP 이용 한도" : "실패"}</span>
                   )}
                 </div>
 

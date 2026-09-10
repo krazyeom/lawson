@@ -105,3 +105,11 @@ test('JSON-escaped external redirect reaches second campaign via HTTP redirect',
   ]);
   assert.equal(r.success, true); assert.ok(r.barcode_url);
 });
+test('IP limit is reported distinctly without retrying or issuing again', async () => {
+  const r = await run([
+    login()[0], ['get', '/auth/login/result?', ok({ status: 'error', error_cd: 'campaign_max_ip_limit' })],
+  ]);
+  assert.equal(r.success, false);
+  assert.equal(r.status, 'ip_limited');
+  assert.match(r.error, /campaign_max_ip_limit/);
+});

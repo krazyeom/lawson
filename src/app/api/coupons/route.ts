@@ -3,9 +3,9 @@ import axios from "axios";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { createCouponLookup, type CouponResult } from "../../../lib/coupons";
 
-export const preferredRegion = ["hnd1"];
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const proxyUrl = process.env.PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
 const apiClient = axios.create({
@@ -22,6 +22,14 @@ const apiClient = axios.create({
 });
 const lookupCoupon = createCouponLookup(apiClient);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// This read-only endpoint verifies which revision actually reached production.
+export async function GET() {
+  return Response.json({
+    version: "lottery-redirect-v2",
+    revision: process.env.VERCEL_GIT_COMMIT_SHA || "local",
+  }, { headers: { "Cache-Control": "no-store" } });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,6 +61,7 @@ export async function POST(request: NextRequest) {
 
       const result = await lookupCoupon(code, campaignSlug);
       results.push(result);
+      if (result.status === "ip_limited") break;
 
       if (i < codes.length - 1) {
         await sleep(300);

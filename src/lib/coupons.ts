@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from "axios";
 export interface CouponResult {
   code: string;
   success: boolean;
-  status?: "not_won";
+  status?: "not_won" | "ip_limited";
   coupon_detail_link: string | null;
   barcode_url?: string | null;
   error?: string;
@@ -34,9 +34,13 @@ interface Campaign {
 }
 
 class NotWonError extends Error {}
+class IpLimitError extends Error {}
 
 function checked(response: AxiosResponse<JobResponse>, stage: string, requesting = false) {
   const body = response.data;
+  if (body?.error === "campaign_max_ip_limit" || body?.data?.error_cd === "campaign_max_ip_limit") {
+    throw new IpLimitError(`${stage}: 캠페인 IP 이용 한도에 도달했습니다 (campaign_max_ip_limit). 기존 발급 이력은 보존됩니다. 제한 해제 시점은 캠페인 운영처에 확인해 주세요.`);
+  }
   // The official client resumes a job already in progress instead of issuing it again.
   if (requesting && body?.error === "job_requesting") return body;
   if (response.status !== 200 || !body?.success || body.data?.status === "error") {
@@ -168,6 +172,7 @@ export function createCouponLookup(
       return {
         code, success: false, coupon_detail_link: finalLink,
         ...(error instanceof NotWonError ? { status: "not_won" as const } : {}),
+        ...(error instanceof IpLimitError ? { status: "ip_limited" as const } : {}),
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
