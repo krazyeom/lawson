@@ -14,7 +14,7 @@ export function createJapanClient() {
     timeout: 15_000,
     maxContentLength: 5 * 1024 * 1024,
     headers: {
-      Accept: "application/json, text/html, image/*",
+      Accept: "application/json",
       Origin: "https://spot.petit.gift",
       Referer: "https://spot.petit.gift/",
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
