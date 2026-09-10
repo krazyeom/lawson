@@ -8,6 +8,7 @@ interface CouponResult {
   coupon_detail_link: string | null;
   barcode_url?: string | null;
   error?: string;
+  status?: "not_won";
 }
 
 function generateCampaignSlug(): string {
@@ -130,7 +131,8 @@ export default function Home() {
   };
 
   const successCount = results.filter((r) => r.success).length;
-  const failCount = results.filter((r) => !r.success).length;
+  const failCount = results.filter((r) => !r.success && r.status !== "not_won").length;
+  const notWonCount = results.filter((r) => r.status === "not_won").length;
   const campaignUrl = `https://spot.petit.gift/campaigns/${campaignSlug}/`;
 
   return (
@@ -258,6 +260,7 @@ export default function Home() {
               <span className="stat-badge stat-badge--error">
                 ❌ {failCount}
               </span>
+              {notWonCount > 0 && <span className="stat-badge">미당첨 {notWonCount}</span>}
             </div>
           </div>
 
@@ -277,7 +280,7 @@ export default function Home() {
                       성공
                     </span>
                   ) : (
-                    <span className="status-pill status-pill--error">실패</span>
+                    <span className="status-pill status-pill--error">{r.status === "not_won" ? "미당첨" : "실패"}</span>
                   )}
                 </div>
 
@@ -317,7 +320,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  {!r.success && r.error && (
+                  {r.error && (
                     <div className="result-item__error">{r.error}</div>
                   )}
                 </div>
