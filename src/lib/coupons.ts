@@ -46,7 +46,11 @@ function checked(response: AxiosResponse<JobResponse>, stage: string, requesting
   if (response.status !== 200 || !body?.success || body.data?.status === "error") {
     const detail = [body?.error, body?.data?.error_cd, body?.message]
       .filter((value) => typeof value === "string").join(": ");
-    throw new Error(`${stage}: HTTP ${response.status}${detail ? ` — ${detail}` : ""}`);
+    const html = typeof body === "string" ? body : "";
+    const gateway = /cloudfront/i.test(html) ? "CloudFront" : /squid/i.test(html) ? "Squid proxy" : "";
+    const server = String(response.headers?.server || "").replace(/[^a-zA-Z0-9 ._/-]/g, "").slice(0,60);
+    const source = gateway || server;
+    throw new Error(`${stage}: HTTP ${response.status}${source ? ` (${source})` : ""}${detail ? ` — ${detail}` : ""}`);
   }
   return body;
 }

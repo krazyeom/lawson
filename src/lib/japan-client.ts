@@ -9,6 +9,7 @@ export function createJapanClient() {
   const proxyUrl = getProxyUrl();
   if (!proxyUrl) throw new Error("일본 프록시(PROXY_URL)가 설정되지 않았습니다.");
   return axios.create({
+    adapter: "http",
     httpsAgent: new HttpsProxyAgent(proxyUrl),
     proxy: false,
     timeout: 15_000,
